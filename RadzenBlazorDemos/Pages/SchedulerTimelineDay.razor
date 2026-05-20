@@ -1,0 +1,123 @@
+@page "/scheduler/timeline-day"
+@using Radzen.Blazor.Rendering
+
+<div class="manufacturing-scheduler-shell">
+    <div class="manufacturing-scheduler-toolbar">
+        <div>
+            <h2>Production timeline</h2>
+            <p>Horizontal resource timeline day view with grouped work centers and overlapping orders.</p>
+        </div>
+    </div>
+
+    <RadzenScheduler Data="@orders"
+                     TItem="ManufacturingOrder"
+                     Date="@DateTime.Today"
+                     SelectedIndex="0"
+                     StartProperty="Start"
+                     EndProperty="End"
+                     TextProperty="Text"
+                     AppointmentSelect="@OnAppointmentSelect"
+                     class="manufacturing-scheduler">
+        <Template Context="order">
+            <div class="manufacturing-order-card @GetStatusClass(order.Status)">
+                <div class="manufacturing-order-main">
+                    <strong>@order.Text</strong>
+                    <span>@order.Product</span>
+                </div>
+                <div class="manufacturing-order-meta">
+                    <span>@order.Start.ToString("h:mm tt") - @order.End.ToString("h:mm tt")</span>
+                    <span>@order.Status</span>
+                </div>
+            </div>
+        </Template>
+
+        <ChildContent>
+            <RadzenTimelineDayView Resources="@resources"
+                                   ResourceProperty="WorkCenterId"
+                                   ResourceGroupProperty="Area"
+                                   ResourceGroupTextProperty="Area"
+                                   SlotDuration="@TimeSpan.FromHours(1)"
+                                   SlotWidth="108"
+                                   LaneHeight="58"
+                                   LaneGap="8"
+                                   TrackPadding="10" />
+        </ChildContent>
+    </RadzenScheduler>
+</div>
+
+<EventConsole @ref="@console" />
+
+@code {
+    private EventConsole console;
+
+    private readonly IList<SchedulerResource> resources = new List<SchedulerResource>
+    {
+        new() { Id = "cut-1", Value = 1, Text = "Laser cutter 1", Color = "#2f6fed", Data = new WorkCenter { WorkCenterId = 1, Area = "Cutting" } },
+        new() { Id = "cut-2", Value = 2, Text = "Laser cutter 2", Color = "#16895a", Data = new WorkCenter { WorkCenterId = 2, Area = "Cutting" } },
+        new() { Id = "asm-1", Value = 3, Text = "Assembly line A", Color = "#c97813", Data = new WorkCenter { WorkCenterId = 3, Area = "Assembly" } },
+        new() { Id = "asm-2", Value = 4, Text = "Assembly line B", Color = "#c13b45", Data = new WorkCenter { WorkCenterId = 4, Area = "Assembly" } },
+        new() { Id = "pack-1", Value = 5, Text = "Packing cell 1", Color = "#705ec8", Data = new WorkCenter { WorkCenterId = 5, Area = "Packaging" } }
+    };
+
+    private readonly IList<ManufacturingOrder> orders = new List<ManufacturingOrder>
+    {
+        new() { WorkCenterId = 1, Start = DateTime.Today.AddHours(7), End = DateTime.Today.AddHours(10), Text = "MO-1042", Product = "Aluminum frames", Status = "Running" },
+        new() { WorkCenterId = 1, Start = DateTime.Today.AddHours(8), End = DateTime.Today.AddHours(11), Text = "MO-1043", Product = "Bracket batch", Status = "Queued" },
+        new() { WorkCenterId = 1, Start = DateTime.Today.AddHours(9), End = DateTime.Today.AddHours(12), Text = "MO-1044", Product = "Panel blanks", Status = "Blocked" },
+        new() { WorkCenterId = 1, Start = DateTime.Today.AddHours(12), End = DateTime.Today.AddHours(15), Text = "MO-1045", Product = "Housing parts", Status = "Done" },
+
+        new() { WorkCenterId = 2, Start = DateTime.Today.AddHours(6), End = DateTime.Today.AddHours(9), Text = "MO-2040", Product = "Door rails", Status = "Done" },
+        new() { WorkCenterId = 2, Start = DateTime.Today.AddHours(10), End = DateTime.Today.AddHours(13), Text = "MO-2041", Product = "Support plates", Status = "Running" },
+        new() { WorkCenterId = 2, Start = DateTime.Today.AddHours(10.5), End = DateTime.Today.AddHours(12), Text = "MO-2042", Product = "Rework slot", Status = "Queued" },
+
+        new() { WorkCenterId = 3, Start = DateTime.Today.AddHours(8), End = DateTime.Today.AddHours(12), Text = "MO-3100", Product = "Drive assembly", Status = "Running" },
+        new() { WorkCenterId = 3, Start = DateTime.Today.AddHours(13), End = DateTime.Today.AddHours(17), Text = "MO-3101", Product = "Final assembly", Status = "Queued" },
+
+        new() { WorkCenterId = 4, Start = DateTime.Today.AddHours(7), End = DateTime.Today.AddHours(9), Text = "MO-4100", Product = "Inspection prep", Status = "Done" },
+        new() { WorkCenterId = 4, Start = DateTime.Today.AddHours(9), End = DateTime.Today.AddHours(14), Text = "MO-4101", Product = "Motor fitment", Status = "Blocked" },
+        new() { WorkCenterId = 4, Start = DateTime.Today.AddHours(11), End = DateTime.Today.AddHours(15), Text = "MO-4102", Product = "Harness install", Status = "Running" },
+
+        new() { WorkCenterId = 5, Start = DateTime.Today.AddHours(8), End = DateTime.Today.AddHours(10), Text = "MO-5100", Product = "Label run", Status = "Done" },
+        new() { WorkCenterId = 5, Start = DateTime.Today.AddHours(10), End = DateTime.Today.AddHours(16), Text = "MO-5101", Product = "Export packing", Status = "Running" }
+    };
+
+    private async Task OnAppointmentSelect(SchedulerAppointmentSelectEventArgs<ManufacturingOrder> args)
+    {
+        console.Log($"AppointmentSelect: {args.Data.Text} WorkCenterId={args.Data.WorkCenterId} {args.Start:t}-{args.End:t}");
+        await Task.CompletedTask;
+    }
+
+    private static string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            "Running" => "status-running",
+            "Queued" => "status-queued",
+            "Blocked" => "status-blocked",
+            "Done" => "status-done",
+            _ => string.Empty
+        };
+    }
+
+    private sealed class WorkCenter
+    {
+        public int WorkCenterId { get; set; }
+
+        public string Area { get; set; }
+    }
+
+    private sealed class ManufacturingOrder
+    {
+        public int WorkCenterId { get; set; }
+
+        public DateTime Start { get; set; }
+
+        public DateTime End { get; set; }
+
+        public string Text { get; set; } = string.Empty;
+
+        public string Product { get; set; } = string.Empty;
+
+        public string Status { get; set; } = string.Empty;
+    }
+}

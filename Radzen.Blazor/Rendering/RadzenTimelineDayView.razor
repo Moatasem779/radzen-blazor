@@ -1,0 +1,361 @@
+@using Microsoft.AspNetCore.Components
+@using Radzen.Blazor
+@inherits SchedulerTimelineViewBase
+
+@code {
+    private const double DayMinutes = 1440;
+    private const double MinimumAppointmentMinutes = 1;
+    private const double DefaultResourceColumnWidth = 220;
+    private const double DefaultSlotWidth = 96;
+    private const double DefaultLaneHeight = 34;
+    private const double DefaultLaneGap = 4;
+    private const double DefaultTrackPadding = 8;
+
+    /// <inheritdoc />
+    public override string Icon => "view_timeline";
+
+    /// <inheritdoc />
+    [Parameter]
+    public override string Text { get; set; } = "Timeline Day";
+
+    /// <summary>
+    /// Gets or sets the resource header text.
+    /// </summary>
+    [Parameter]
+    public string ResourceHeaderText { get; set; } = "Resources";
+
+    /// <summary>
+    /// Gets or sets the sticky resource column width in pixels.
+    /// </summary>
+    [Parameter]
+    public double ResourceColumnWidth { get; set; } = DefaultResourceColumnWidth;
+
+    /// <summary>
+    /// Gets or sets the rendered width of each timeline slot in pixels.
+    /// </summary>
+    [Parameter]
+    public double SlotWidth { get; set; } = DefaultSlotWidth;
+
+    /// <summary>
+    /// Gets or sets the height of a single appointment lane in pixels.
+    /// </summary>
+    [Parameter]
+    public double LaneHeight { get; set; } = DefaultLaneHeight;
+
+    /// <summary>
+    /// Gets or sets the vertical gap between appointment lanes in pixels.
+    /// </summary>
+    [Parameter]
+    public double LaneGap { get; set; } = DefaultLaneGap;
+
+    /// <summary>
+    /// Gets or sets the block padding inside a resource appointment track in pixels.
+    /// </summary>
+    [Parameter]
+    public double TrackPadding { get; set; } = DefaultTrackPadding;
+
+    /// <inheritdoc />
+    public override string Title => Scheduler?.CurrentDate.ToString(Scheduler.Culture.DateTimeFormat.ShortDatePattern, Scheduler.Culture) ?? Text;
+
+    /// <inheritdoc />
+    public override DateTime StartDate => Scheduler?.CurrentDate.Date ?? DateTime.Today;
+
+    /// <inheritdoc />
+    public override DateTime EndDate => StartDate.AddDays(1);
+
+    /// <inheritdoc />
+    public override DateTime Next()
+    {
+        return Scheduler?.CurrentDate.Date.AddDays(1) ?? DateTime.Today.AddDays(1);
+    }
+
+    /// <inheritdoc />
+    public override DateTime Prev()
+    {
+        return Scheduler?.CurrentDate.Date.AddDays(-1) ?? DateTime.Today.AddDays(-1);
+    }
+
+    /// <inheritdoc />
+    public override RenderFragment Render()
+    {
+        var slots = BuildSlots();
+        var trackWidth = GetTrackWidth(slots.Count);
+        var gridTemplateColumns = GetTrackGridTemplate(slots.Count);
+
+        return
+            @<div class="@GetViewClass()" dir="@Direction" style="@GetTimelineStyle(slots.Count, trackWidth)">
+                <div class="rz-view-content rz-resource-timeline-scroll" tabindex="0">
+                    <div class="rz-resource-timeline-grid" role="grid">
+                        <div class="rz-resource-header rz-resource-timeline-corner" role="columnheader">
+                            @ResourceHeaderText
+                        </div>
+                        <div class="rz-resource-timeline-header-slots"
+                             role="row"
+                             style="@GetTrackGridStyle(trackWidth, gridTemplateColumns)">
+                            @foreach (var slot in slots)
+                            {
+                                <div class="rz-slot-header" role="columnheader">
+                                    <span>@slot.Start.ToString("t", Scheduler?.Culture ?? System.Globalization.CultureInfo.CurrentCulture)</span>
+                                </div>
+                            }
+                        </div>
+
+                        @foreach (var resource in VisibleResources)
+                        {
+                            if (resource.IsGroupHeader)
+                            {
+                                <button type="button"
+                                        class="rz-resource-cell rz-resource-group-cell"
+                                        @onclick="@(() => ToggleResourceGroup(resource.GroupKey))"
+                                        disabled="@(!AllowResourceGroupCollapse)"
+                                        aria-expanded="@(!IsResourceGroupCollapsed(resource.GroupKey))">
+                                    <span class="rz-resource-group-toggle" aria-hidden="true">@(IsResourceGroupCollapsed(resource.GroupKey) ? "+" : "-")</span>
+                                    <span class="rz-resource-title">@resource.Text</span>
+                                </button>
+                                <div class="rz-resource-timeline-group-track" style="@GetTrackWidthStyle(trackWidth)"></div>
+                            }
+                            else
+                            {
+                                var layout = BuildResourceLayout(resource);
+
+                                <div class="rz-resource-cell"
+                                     role="rowheader"
+                                     style="@GetResourceCellStyle(resource, layout.Height)">
+                                    @if (!string.IsNullOrWhiteSpace(resource.Color))
+                                    {
+                                        <span class="rz-resource-color" aria-hidden="true"></span>
+                                    }
+                                    <span class="rz-resource-title">@resource.Text</span>
+                                </div>
+
+                                <div class="rz-resource-timeline-slots"
+                                     role="row"
+                                     style="@GetResourceTrackStyle(trackWidth, layout.Height, gridTemplateColumns)">
+                                    @foreach (var slot in slots)
+                                    {
+                                        var slotStart = slot.Start;
+                                        <div role="gridcell"
+                                             @onclick="@(() => OnSlotClick(slotStart))"
+                                             @attributes="@GetSlotAttributes(slot)">
+                                        </div>
+                                    }
+
+                                    <div class="rz-appointments-track" aria-hidden="false">
+                                        @foreach (var item in layout.Items)
+                                        {
+                                            <Appointment Data="@item.Appointment"
+                                                         Click="@OnAppointmentClick"
+                                                         CssClass="rz-resource-timeline-event"
+                                                         AdditionalAttributes="@item.Attributes" />
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>;
+    }
+
+    private async Task OnAppointmentClick(AppointmentData appointment)
+    {
+        if (Scheduler != null)
+        {
+            await Scheduler.SelectAppointment(appointment);
+        }
+    }
+
+    private async Task OnSlotClick(DateTime start)
+    {
+        if (Scheduler != null)
+        {
+            var end = start.Add(NormalizedSlotDuration);
+            var slotEnd = end > EndDate ? EndDate : end;
+            await Scheduler.SelectSlot(start, slotEnd, Scheduler.GetAppointmentsInRange(start, slotEnd).Where(appointment => Scheduler.IsAppointmentInRange(appointment, start, slotEnd)));
+        }
+    }
+
+    private ResourceLayout BuildResourceLayout(SchedulerResource resource)
+    {
+        var appointments = GetAppointmentsForResource(resource, StartDate, EndDate)
+            .Where(appointment => appointment.End > StartDate && appointment.Start < EndDate)
+            .OrderBy(appointment => appointment.Start)
+            .ThenByDescending(appointment => appointment.End)
+            .ToList();
+
+        var laneEnds = new List<DateTime>();
+        var items = new List<TimelineAppointmentLayout>(appointments.Count);
+
+        foreach (var appointment in appointments)
+        {
+            var start = appointment.Start < StartDate ? StartDate : appointment.Start;
+            var end = appointment.End > EndDate ? EndDate : appointment.End;
+
+            if (end <= start)
+            {
+                end = start.AddMinutes(MinimumAppointmentMinutes);
+            }
+
+            if (end > EndDate)
+            {
+                end = EndDate;
+            }
+
+            var lane = FindAvailableLane(laneEnds, start);
+
+            if (lane == laneEnds.Count)
+            {
+                laneEnds.Add(end);
+            }
+            else
+            {
+                laneEnds[lane] = end;
+            }
+
+            items.Add(new TimelineAppointmentLayout(appointment, GetAppointmentAttributes(start, end, lane)));
+        }
+
+        var lanes = Math.Max(1, laneEnds.Count);
+        var height = (NormalizedTrackPadding * 2) + (lanes * NormalizedLaneHeight) + ((lanes - 1) * NormalizedLaneGap);
+
+        return new ResourceLayout(items, height);
+    }
+
+    private static int FindAvailableLane(IReadOnlyList<DateTime> laneEnds, DateTime start)
+    {
+        for (var index = 0; index < laneEnds.Count; index++)
+        {
+            if (laneEnds[index] <= start)
+            {
+                return index;
+            }
+        }
+
+        return laneEnds.Count;
+    }
+
+    private IReadOnlyDictionary<string, object> GetAppointmentAttributes(DateTime start, DateTime end, int lane)
+    {
+        var insetInlineStart = GetPercentFromDayStart(start);
+        var width = Math.Max(GetPercentFromDayStart(end) - insetInlineStart, 0.15);
+        var top = NormalizedTrackPadding + (lane * (NormalizedLaneHeight + NormalizedLaneGap));
+        var style = string.Join(";",
+            "position:absolute",
+            $"inset-inline-start:{ToInvariant(insetInlineStart)}%",
+            $"inset-block-start:{ToInvariant(top)}px",
+            $"width:{ToInvariant(width)}%",
+            $"height:{ToInvariant(NormalizedLaneHeight)}px");
+
+        return new Dictionary<string, object> { ["style"] = style };
+    }
+
+    private IDictionary<string, object> GetSlotAttributes(TimelineSlot slot)
+    {
+        var attributes = Scheduler?.GetSlotAttributes(slot.Start, slot.End, () => Scheduler.GetAppointmentsInRange(slot.Start, slot.End).Where(appointment => Scheduler.IsAppointmentInRange(appointment, slot.Start, slot.End))) ?? new Dictionary<string, object>();
+        attributes["class"] = ClassList.Create("rz-slot").Add(attributes).ToString();
+        attributes["dropzone"] = "move";
+
+        return attributes;
+    }
+
+    private double GetPercentFromDayStart(DateTime value)
+    {
+        var clamped = value < StartDate ? StartDate : value > EndDate ? EndDate : value;
+        var minutes = (clamped - StartDate).TotalMinutes;
+
+        return minutes / DayMinutes * 100;
+    }
+
+    private List<TimelineSlot> BuildSlots()
+    {
+        var slots = new List<TimelineSlot>();
+
+        for (var start = StartDate; start < EndDate; start = start.Add(NormalizedSlotDuration))
+        {
+            var end = start.Add(NormalizedSlotDuration);
+            slots.Add(new TimelineSlot(start, end > EndDate ? EndDate : end));
+        }
+
+        return slots;
+    }
+
+    private string GetViewClass()
+    {
+        return ClassList.Create("rz-view rz-resource-timeline-view rz-timeline-day-view")
+            .Add("rz-rtl", IsRtl)
+            .ToString();
+    }
+
+    private string GetTimelineStyle(int slotCount, double trackWidth)
+    {
+        return string.Join(";",
+            $"--rz-resource-timeline-slot-count:{slotCount.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            $"--rz-scheduler-resource-column-width:{ToInvariant(NormalizedResourceColumnWidth)}px",
+            $"--rz-scheduler-timeline-slot-width:{ToInvariant(NormalizedSlotWidth)}px",
+            $"--rz-resource-timeline-track-width:{ToInvariant(trackWidth)}px");
+    }
+
+    private static string GetTrackGridStyle(double trackWidth, string gridTemplateColumns)
+    {
+        return $"{GetTrackWidthStyle(trackWidth)};grid-template-columns:{gridTemplateColumns}";
+    }
+
+    private static string GetTrackWidthStyle(double trackWidth)
+    {
+        return $"width:{ToInvariant(trackWidth)}px";
+    }
+
+    private static string GetResourceTrackStyle(double trackWidth, double rowHeight, string gridTemplateColumns)
+    {
+        return $"{GetTrackGridStyle(trackWidth, gridTemplateColumns)};height:{ToInvariant(rowHeight)}px;--rz-resource-timeline-row-height:{ToInvariant(rowHeight)}px";
+    }
+
+    private string GetResourceCellStyle(SchedulerResource resource, double rowHeight)
+    {
+        var style = $"height:{ToInvariant(rowHeight)}px;--rz-resource-timeline-row-height:{ToInvariant(rowHeight)}px";
+
+        if (!string.IsNullOrWhiteSpace(resource.Color))
+        {
+            style += $";--rz-resource-color:{resource.Color}";
+        }
+
+        return style;
+    }
+
+    private double GetTrackWidth(int slotCount)
+    {
+        return slotCount * NormalizedSlotWidth;
+    }
+
+    private string GetTrackGridTemplate(int slotCount)
+    {
+        return $"repeat({slotCount.ToString(System.Globalization.CultureInfo.InvariantCulture)}, minmax(0, var(--rz-scheduler-timeline-slot-width)))";
+    }
+
+    private static string ToInvariant(double value)
+    {
+        return value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private bool IsRtl => Scheduler?.Culture.TextInfo.IsRightToLeft == true;
+
+    private string Direction => IsRtl ? "rtl" : "ltr";
+
+    private TimeSpan NormalizedSlotDuration => SlotDuration > TimeSpan.Zero ? SlotDuration : TimeSpan.FromMinutes(30);
+
+    private double NormalizedResourceColumnWidth => ResourceColumnWidth > 0 ? ResourceColumnWidth : DefaultResourceColumnWidth;
+
+    private double NormalizedSlotWidth => SlotWidth > 0 ? SlotWidth : DefaultSlotWidth;
+
+    private double NormalizedLaneHeight => LaneHeight > 0 ? LaneHeight : DefaultLaneHeight;
+
+    private double NormalizedLaneGap => LaneGap >= 0 ? LaneGap : DefaultLaneGap;
+
+    private double NormalizedTrackPadding => TrackPadding >= 0 ? TrackPadding : DefaultTrackPadding;
+
+    private sealed record TimelineSlot(DateTime Start, DateTime End);
+
+    private sealed record ResourceLayout(IReadOnlyList<TimelineAppointmentLayout> Items, double Height);
+
+    private sealed record TimelineAppointmentLayout(AppointmentData Appointment, IReadOnlyDictionary<string, object> Attributes);
+}
