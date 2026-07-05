@@ -58,6 +58,15 @@ namespace Radzen.Blazor
         /// <param name="data">The appointment to select.</param>
         Task SelectAppointment(AppointmentData data);
         /// <summary>
+        /// Selects the specified appointment and its resource.
+        /// </summary>
+        /// <param name="data">The appointment to select.</param>
+        /// <param name="resource">The resource.</param>
+        Task SelectAppointment(AppointmentData data, object? resource)
+        {
+            return SelectAppointment(data);
+        }
+        /// <summary>
         /// Selects the specified slot.
         /// </summary>
         /// <param name="start">The start.</param>
@@ -70,6 +79,17 @@ namespace Radzen.Blazor
         /// <param name="end">The end.</param>
         /// <param name="appointments">The appointments for this range.</param>
         Task<bool> SelectSlot(DateTime start, DateTime end, IEnumerable<AppointmentData> appointments);
+        /// <summary>
+        /// Selects the specified slot and its resource.
+        /// </summary>
+        /// <param name="start">The start.</param>
+        /// <param name="end">The end.</param>
+        /// <param name="appointments">The appointments for this range.</param>
+        /// <param name="resource">The resource.</param>
+        Task<bool> SelectSlot(DateTime start, DateTime end, IEnumerable<AppointmentData> appointments, object? resource)
+        {
+            return SelectSlot(start, end, appointments);
+        }
         /// <summary>
         /// Selects the specified month.
         /// </summary>

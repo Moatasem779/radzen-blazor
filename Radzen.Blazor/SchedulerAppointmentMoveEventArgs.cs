@@ -23,5 +23,10 @@ public class SchedulerAppointmentMoveEventArgs
     /// Gets or sets the date of the slot where the appointment is moved.
     /// </summary>
     public DateTime SlotDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the target resource where the appointment is moved.
+    /// </summary>
+    public object? Resource { get; set; }
 }
 

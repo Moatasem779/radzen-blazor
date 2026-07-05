@@ -22,5 +22,9 @@ namespace Radzen
         /// </summary>
         /// <value>The data.</value>
         public TItem? Data { get; set; }
+        /// <summary>
+        /// The resource associated with this appointment, if any.
+        /// </summary>
+        public object? Resource { get; set; }
     }
 }

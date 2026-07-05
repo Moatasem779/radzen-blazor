@@ -36,5 +36,9 @@ namespace Radzen
         {
             IsDefaultPrevented = true;
         }
+        /// <summary>
+        /// The resource associated with this slot, if any.
+        /// </summary>
+        public object? Resource { get; set; }
     }
 }

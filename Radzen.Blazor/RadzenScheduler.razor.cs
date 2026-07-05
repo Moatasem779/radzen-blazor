@@ -448,6 +448,15 @@ namespace Radzen.Blazor
         }
 
         /// <inheritdoc />
+        public async Task<bool> SelectSlot(DateTime start, DateTime end, IEnumerable<AppointmentData> appointments, object? resource)
+        {
+            var args = new SchedulerSlotSelectEventArgs { Start = start, End = end, Appointments = appointments, View = SelectedView, Resource = resource };
+            await SlotSelect.InvokeAsync(args);
+
+            return args.IsDefaultPrevented;
+        }
+
+        /// <inheritdoc />
         public async Task SelectMonth(DateTime monthStart, IEnumerable<AppointmentData> appointments)
         {
             await MonthSelect.InvokeAsync(new SchedulerMonthSelectEventArgs { MonthStart = monthStart, Appointments = appointments, View = SelectedView });
@@ -475,6 +484,15 @@ namespace Radzen.Blazor
 
             var appointmentData = data.Data is TItem typedData ? typedData : default!;
             await AppointmentSelect.InvokeAsync(new SchedulerAppointmentSelectEventArgs<TItem> { Start = data.Start, End = data.End, Data = appointmentData });
+        }
+
+        /// <inheritdoc />
+        public async Task SelectAppointment(AppointmentData data, object? resource)
+        {
+            ArgumentNullException.ThrowIfNull(data);
+
+            var appointmentData = data.Data is TItem typedData ? typedData : default!;
+            await AppointmentSelect.InvokeAsync(new SchedulerAppointmentSelectEventArgs<TItem> { Start = data.Start, End = data.End, Data = appointmentData, Resource = resource });
         }
 
         /// <inheritdoc />

@@ -1,0 +1,20 @@
+@using Radzen.Blazor
+@using Radzen.Blazor.Rendering
+
+@inherits SchedulerViewBase
+
+@code {
+    public override RenderFragment Render()
+    {
+        var appointments = Scheduler?.GetAppointmentsInRange(StartDate, EndDate).ToList() ?? new List<AppointmentData>();
+
+        return
+    @<CascadingValue Value=@Scheduler>
+        <DayTimelineView StartDate=@StartDate EndDate=@EndDate StartTime=@StartTime EndTime=@EndTime Appointments=@appointments
+            TimeFormat=@TimeFormat MinutesPerSlot=@MinutesPerSlot
+            Resources=@Resources ResourceProperty=@ResourceProperty ResourceTextProperty=@ResourceTextProperty ResourceValueProperty=@ResourceValueProperty GroupOrientation=@GroupOrientation
+            AppointmentMove=OnAppointmentMove />
+    </CascadingValue>
+    ;
+    }
+}
