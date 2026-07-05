@@ -1,0 +1,163 @@
+@page "/scheduler-timeline-grouping"
+@inject DialogService DialogService
+
+<RadzenText TextStyle="TextStyle.H2" TagName="TagName.H1" class="rz-pt-8">
+    Scheduler Resource Timeline Grouping
+</RadzenText>
+<RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" class="rz-pb-4">
+    Day, week, and month timeline views with horizontal and vertical resource grouping.
+</RadzenText>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1.5rem" class="rz-p-4 rz-mb-6 rz-border-radius-1" Style="border: var(--rz-grid-cell-border); min-height:4rem; flex-wrap: wrap;">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenLabel Text="Grouping Orientation: " />
+        <RadzenSelectBar @bind-Value=@groupOrientation TValue="GroupOrientation">
+            <Items>
+                <RadzenSelectBarItem Text="Vertical (Rows)" Value="GroupOrientation.Vertical" />
+                <RadzenSelectBarItem Text="Horizontal (Columns)" Value="GroupOrientation.Horizontal" />
+            </Items>
+        </RadzenSelectBar>
+    </RadzenStack>
+
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenLabel Text="Enable Grouping: " />
+        <RadzenSwitch @bind-Value=@enableGrouping />
+    </RadzenStack>
+</RadzenStack>
+
+<RadzenScheduler @ref=@scheduler style="height: 768px;" TItem="Appointment" Data=@appointments StartProperty="Start" EndProperty="End"
+                 TextProperty="Text" SelectedIndex="0"
+                 SlotSelect=@OnSlotSelect AppointmentSelect=@OnAppointmentSelect AppointmentMove=@OnAppointmentMove>
+    <RadzenDayTimelineView 
+        Resources="@(enableGrouping ? rooms : null)" 
+        ResourceProperty="RoomId" 
+        ResourceTextProperty="Name" 
+        ResourceValueProperty="Id" 
+        GroupOrientation="@groupOrientation" />
+    <RadzenWeekTimelineView 
+        Resources="@(enableGrouping ? rooms : null)" 
+        ResourceProperty="RoomId" 
+        ResourceTextProperty="Name" 
+        ResourceValueProperty="Id" 
+        GroupOrientation="@groupOrientation" />
+    <RadzenMonthTimelineView 
+        Resources="@(enableGrouping ? rooms : null)" 
+        ResourceProperty="RoomId" 
+        ResourceTextProperty="Name" 
+        ResourceValueProperty="Id" 
+        GroupOrientation="@groupOrientation" />
+</RadzenScheduler>
+
+<EventConsole @ref=@console />
+
+@code {
+    RadzenScheduler<Appointment> scheduler = null!;
+    EventConsole console = null!;
+
+    GroupOrientation groupOrientation = GroupOrientation.Vertical;
+    bool enableGrouping = true;
+
+    public class Resource
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class Appointment
+    {
+        public DateTime Start { get; set; }
+        public DateTime End { get; set; }
+        public string Text { get; set; } = string.Empty;
+        public int RoomId { get; set; }
+    }
+
+    List<Resource> rooms = new List<Resource>
+    {
+        new Resource { Id = 1, Name = "Room A (Conference)" },
+        new Resource { Id = 2, Name = "Room B (Co-working)" },
+        new Resource { Id = 3, Name = "Room C (Focus)" },
+        new Resource { Id = 4, Name = "Room D (Executive)" }
+    };
+
+    IList<Appointment> appointments = new List<Appointment>
+    {
+        new Appointment { Start = DateTime.Today.AddHours(9), End = DateTime.Today.AddHours(11), Text = "Project Planning Meeting", RoomId = 1 },
+        new Appointment { Start = DateTime.Today.AddHours(10), End = DateTime.Today.AddHours(12), Text = "Design Sprint Warm-up", RoomId = 2 },
+        new Appointment { Start = DateTime.Today.AddHours(13), End = DateTime.Today.AddHours(15), Text = "Sprint Review & Demo", RoomId = 1 },
+        new Appointment { Start = DateTime.Today.AddHours(14), End = DateTime.Today.AddHours(16), Text = "Customer Call & Pitch", RoomId = 3 },
+        new Appointment { Start = DateTime.Today.AddHours(15), End = DateTime.Today.AddHours(17), Text = "One-on-One Sync", RoomId = 2 },
+        new Appointment { Start = DateTime.Today.AddDays(1).AddHours(9), End = DateTime.Today.AddDays(1).AddHours(12), Text = "All-Hands Alignment", RoomId = 4 },
+        new Appointment { Start = DateTime.Today.AddDays(-1).AddHours(11), End = DateTime.Today.AddDays(-1).AddHours(13), Text = "Tech Retro", RoomId = 3 }
+    };
+
+    async Task OnSlotSelect(SchedulerSlotSelectEventArgs args)
+    {
+        console.Log($"SlotSelect: Start={args.Start} End={args.End} ResourceId={args.Resource}");
+
+        // Using standard Radzen appointment models/dialogs for the demo
+        var newAppointmentData = new RadzenBlazorDemos.Appointment
+        {
+            Start = args.Start,
+            End = args.End,
+            Text = "New Booking"
+        };
+
+        var data = await DialogService.OpenAsync<AddAppointmentPage>("Add Appointment",
+            new Dictionary<string, object> { { "Start", args.Start }, { "End", args.End } });
+
+        if (data != null)
+        {
+            var appointment = new Appointment
+            {
+                Start = data.Start,
+                End = data.End,
+                Text = data.Text,
+                RoomId = args.Resource is int id ? id : 1
+            };
+            appointments.Add(appointment);
+            await scheduler.Reload();
+        }
+    }
+
+    async Task OnAppointmentSelect(SchedulerAppointmentSelectEventArgs<Appointment> args)
+    {
+        console.Log($"AppointmentSelect: Appointment={args.Data.Text} ResourceId={args.Resource}");
+
+        var copy = new RadzenBlazorDemos.Appointment
+        {
+            Start = args.Data.Start,
+            End = args.Data.End,
+            Text = args.Data.Text
+        };
+
+        var data = await DialogService.OpenAsync<EditAppointmentPage>("Edit Appointment", new Dictionary<string, object> { { "Appointment", copy } });
+
+        if (data != null)
+        {
+            args.Data.Start = data.Start;
+            args.Data.End = data.End;
+            args.Data.Text = data.Text;
+            await scheduler.Reload();
+        }
+    }
+
+    async Task OnAppointmentMove(SchedulerAppointmentMoveEventArgs args)
+    {
+        var draggedAppointment = appointments.FirstOrDefault(x => x == args.Appointment?.Data);
+
+        if (draggedAppointment != null)
+        {
+            var duration = draggedAppointment.End - draggedAppointment.Start;
+            draggedAppointment.Start = args.SlotDate;
+            draggedAppointment.End = args.SlotDate.Add(duration);
+
+            if (args.Resource is int roomId)
+            {
+                draggedAppointment.RoomId = roomId;
+            }
+
+            console.Log($"AppointmentMove: Moved '{draggedAppointment.Text}' to slot {args.SlotDate} on Room ID {args.Resource}");
+            await scheduler.Reload();
+        }
+    }
+}
