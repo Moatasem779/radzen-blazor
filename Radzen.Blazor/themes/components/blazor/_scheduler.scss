@@ -827,3 +827,165 @@ $scheduler-highlight-background-color: rgba(255,220,40,.2) !default;
     }
   }
 }
+
+/* Resource Timeline Views styling */
+.rz-timeline-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background-color: var(--rz-scheduler-background-color);
+  border: var(--rz-scheduler-border);
+  border-radius: var(--rz-scheduler-border-radius);
+  overflow: auto;
+}
+
+.rz-timeline-view-header {
+  display: flex;
+  border-block-end: var(--rz-scheduler-header-border);
+  background-color: var(--rz-scheduler-header-background-color);
+  color: var(--rz-scheduler-header-color);
+}
+
+.rz-timeline-resource-header-column {
+  flex: 0 0 12rem;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  border-inline-end: 1px solid var(--rz-scheduler-border-color);
+  font-size: var(--rz-scheduler-header-font-size);
+  font-weight: bold;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: var(--rz-scheduler-header-text-transform);
+  background-color: var(--rz-scheduler-header-background-color);
+}
+
+.rz-timeline-slots-header {
+  flex: 1;
+  display: flex;
+}
+
+.rz-timeline-slot-header {
+  flex: 1;
+  text-align: center;
+  border-inline-end: 1px solid var(--rz-scheduler-border-color);
+  padding: 0.5rem 0.25rem;
+  font-size: var(--rz-scheduler-header-font-size);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.rz-timeline-slot-header:last-child {
+  border-inline-end: none;
+}
+
+.rz-timeline-row {
+  display: flex;
+  border-block-end: 1px solid var(--rz-scheduler-border-color);
+  position: relative;
+  background-color: var(--rz-scheduler-background-color);
+}
+
+.rz-timeline-row:last-child {
+  border-block-end: none;
+}
+
+.rz-timeline-resource-cell {
+  flex: 0 0 12rem;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  border-inline-end: 1px solid var(--rz-scheduler-border-color);
+  background-color: var(--rz-scheduler-header-background-color);
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-weight: 500;
+  font-size: var(--rz-scheduler-event-font-size);
+  color: var(--rz-scheduler-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rz-timeline-slots-row {
+  flex: 1;
+  display: flex;
+  position: relative;
+}
+
+.rz-timeline-slot {
+  flex: 1;
+  border-inline-end: 1px solid var(--rz-scheduler-minor-border-color);
+  cursor: pointer;
+  height: 100%;
+}
+
+.rz-timeline-slot:last-child {
+  border-inline-end: none;
+}
+
+.rz-timeline-slot:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Horizontal Grouping layout */
+.rz-timeline-horizontal-header-groups {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.rz-timeline-horizontal-resources {
+  display: flex;
+  border-block-end: 1px solid var(--rz-scheduler-border-color);
+}
+
+.rz-timeline-horizontal-resource-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-inline-end: 1px solid var(--rz-scheduler-border-color);
+}
+
+.rz-timeline-horizontal-resource-group:last-child {
+  border-inline-end: none;
+}
+
+.rz-timeline-horizontal-resource-title {
+  text-align: center;
+  font-weight: bold;
+  padding: 0.5rem;
+  background-color: var(--rz-scheduler-header-background-color);
+  border-block-end: 1px solid var(--rz-scheduler-border-color);
+  font-size: var(--rz-scheduler-header-font-size);
+}
+
+.rz-timeline-horizontal-resource-slots {
+  display: flex;
+}
+
+.rz-timeline-horizontal-slots-container {
+  display: flex;
+  flex: 1;
+}
+
+.rz-timeline-horizontal-resource-body-group {
+  flex: 1;
+  display: flex;
+  position: relative;
+  border-inline-end: 1px solid var(--rz-scheduler-border-color);
+}
+
+.rz-timeline-horizontal-resource-body-group:last-child {
+  border-inline-end: none;
+}
+
