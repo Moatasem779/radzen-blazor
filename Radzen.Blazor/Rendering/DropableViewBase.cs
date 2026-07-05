@@ -9,8 +9,15 @@ namespace Radzen.Blazor.Rendering
     /// </summary>
     public abstract class DropableViewBase : ComponentBase
     {
-        private bool dragStarted;
-        private AppointmentData? draggedAppointment;
+        /// <summary>
+        /// Indicates whether a drag operation has started.
+        /// </summary>
+        protected bool dragStarted;
+
+        /// <summary>
+        /// The appointment currently being dragged.
+        /// </summary>
+        protected AppointmentData? draggedAppointment;
         /// <summary>
         /// Gets or sets the appointment move event callback.
         /// </summary>

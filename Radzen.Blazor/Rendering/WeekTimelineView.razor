@@ -1,0 +1,425 @@
+@using Radzen.Blazor
+@using System.Collections
+@using System.Collections.Generic
+@using System.Linq
+@inherits DropableViewBase
+
+<style>
+.rz-timeline-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background-color: var(--rz-scheduler-background-color);
+  border: var(--rz-scheduler-border);
+  border-radius: var(--rz-scheduler-border-radius);
+  overflow: auto;
+}
+
+.rz-timeline-view-header {
+  display: flex;
+  border-block-end: var(--rz-scheduler-header-border);
+  background-color: var(--rz-scheduler-header-background-color);
+  color: var(--rz-scheduler-header-color);
+}
+
+.rz-timeline-resource-header-column {
+  flex: 0 0 12rem;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  border-inline-end: 1px solid var(--rz-scheduler-border-color);
+  font-size: var(--rz-scheduler-header-font-size);
+  font-weight: bold;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: var(--rz-scheduler-header-text-transform);
+  background-color: var(--rz-scheduler-header-background-color);
+}
+
+.rz-timeline-slots-header {
+  flex: 1;
+  display: flex;
+}
+
+.rz-timeline-slot-header {
+  flex: 1;
+  text-align: center;
+  border-inline-end: 1px solid var(--rz-scheduler-border-color);
+  padding: 0.5rem 0.25rem;
+  font-size: var(--rz-scheduler-header-font-size);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.rz-timeline-slot-header:last-child {
+  border-inline-end: none;
+}
+
+.rz-timeline-row {
+  display: flex;
+  border-block-end: 1px solid var(--rz-scheduler-border-color);
+  position: relative;
+  background-color: var(--rz-scheduler-background-color);
+}
+
+.rz-timeline-row:last-child {
+  border-block-end: none;
+}
+
+.rz-timeline-resource-cell {
+  flex: 0 0 12rem;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  border-inline-end: 1px solid var(--rz-scheduler-border-color);
+  background-color: var(--rz-scheduler-header-background-color);
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-weight: 500;
+  font-size: var(--rz-scheduler-event-font-size);
+  color: var(--rz-scheduler-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rz-timeline-slots-row {
+  flex: 1;
+  display: flex;
+  position: relative;
+}
+
+.rz-timeline-slot {
+  flex: 1;
+  border-inline-end: 1px solid var(--rz-scheduler-minor-border-color);
+  cursor: pointer;
+  height: 100%;
+}
+
+.rz-timeline-slot:last-child {
+  border-inline-end: none;
+}
+
+.rz-timeline-slot:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Horizontal Grouping layout */
+.rz-timeline-horizontal-header-groups {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.rz-timeline-horizontal-resources {
+  display: flex;
+  border-block-end: 1px solid var(--rz-scheduler-border-color);
+}
+
+.rz-timeline-horizontal-resource-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-inline-end: 1px solid var(--rz-scheduler-border-color);
+}
+
+.rz-timeline-horizontal-resource-group:last-child {
+  border-inline-end: none;
+}
+
+.rz-timeline-horizontal-resource-title {
+  text-align: center;
+  font-weight: bold;
+  padding: 0.5rem;
+  background-color: var(--rz-scheduler-header-background-color);
+  border-block-end: 1px solid var(--rz-scheduler-border-color);
+  font-size: var(--rz-scheduler-header-font-size);
+}
+
+.rz-timeline-horizontal-resource-slots {
+  display: flex;
+}
+
+.rz-timeline-horizontal-slots-container {
+  display: flex;
+  flex: 1;
+}
+
+.rz-timeline-horizontal-resource-body-group {
+  flex: 1;
+  display: flex;
+  position: relative;
+  border-inline-end: 1px solid var(--rz-scheduler-border-color);
+}
+
+.rz-timeline-horizontal-resource-body-group:last-child {
+  border-inline-end: none;
+}
+</style>
+
+<div class="rz-timeline-view rz-week-timeline-view">
+    @{
+        var resolvedResources = ResolvedResources;
+    }
+    @if (GroupOrientation == GroupOrientation.Vertical || !HasResources)
+    {
+        <!-- Header -->
+        <div class="rz-timeline-view-header">
+            @if (HasResources)
+            {
+                <div class="rz-timeline-resource-header-column">
+                    Resources
+                </div>
+            }
+            <div class="rz-timeline-slots-header">
+                @foreach (var date in GetSlotDays())
+                {
+                    <div class="rz-timeline-slot-header">
+                        @date.ToString(HeaderFormat, Scheduler?.Culture ?? System.Globalization.CultureInfo.CurrentCulture)
+                    </div>
+                }
+            </div>
+        </div>
+        
+        <!-- Body Rows -->
+        <div class="rz-timeline-view-body">
+            @foreach (var res in resolvedResources)
+            {
+                var resourceAppointments = GetAppointmentsForResource(res);
+                var slotCount = GetSlotDays().Count;
+                var minWidth = slotCount > 0 ? 100.0 / slotCount : 0.0;
+                var renderedAppointments = TimelineAppointmentLayoutEngine.LayoutAppointments(resourceAppointments, StartDate, EndDate, minWidth, snapToDays: true);
+ 
+                var subLaneCount = renderedAppointments.Any() ? renderedAppointments.Max(a => a.SubLane) + 1 : 0;
+                var rowHeightEm = Math.Max(1, subLaneCount) * 2.2 + 0.8;
+                
+                <div class="rz-timeline-row" style="min-height: @(rowHeightEm.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))em;">
+                    @if (HasResources)
+                    {
+                        <div class="rz-timeline-resource-cell">
+                            @res.Text
+                        </div>
+                    }
+                    
+                    <div class="rz-timeline-slots-row">
+                        <!-- Background slots -->
+                        @foreach (var date in GetSlotDays())
+                        {
+                            var slotDate = date;
+                            <div @onclick=@(args => OnSlotClick(slotDate, res))
+                                 ondragover="event.preventDefault();"
+                                 @ondrop=@(args => OnTimelineDrop(slotDate, res))
+                                 @attributes=@SlotAttributes(slotDate, res)>
+                            </div>
+                        }
+                        
+                        <!-- Appointments -->
+                        @foreach (var app in renderedAppointments)
+                        {
+                            <Appointment Data=@app.Appointment 
+                                         Left=@app.Left 
+                                         Width=@app.Width 
+                                         Top=@(app.SubLane * 2.2 + 0.4) 
+                                         Height="1.8" 
+                                         Click=@(a => OnAppointmentClick(a, res)) 
+                                         DragStart=@OnAppointmentDragStart />
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Horizontal Grouping Layout -->
+        <div class="rz-timeline-view-header">
+            <div class="rz-timeline-horizontal-header-groups">
+                <div class="rz-timeline-horizontal-resources">
+                    @foreach (var res in resolvedResources)
+                    {
+                        <div class="rz-timeline-horizontal-resource-group">
+                            <div class="rz-timeline-horizontal-resource-title">
+                                @res.Text
+                            </div>
+                            <div class="rz-timeline-horizontal-resource-slots">
+                                @foreach (var date in GetSlotDays())
+                                {
+                                    <div class="rz-timeline-slot-header">
+                                        @date.ToString(HeaderFormat, Scheduler?.Culture ?? System.Globalization.CultureInfo.CurrentCulture)
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="rz-timeline-view-body">
+            @{
+                var maxSubLaneCount = 0;
+                var resourceLayouts = new Dictionary<TimelineResourceGroup, List<RenderedTimelineAppointment>>();
+                var slotCount = GetSlotDays().Count;
+                var minWidth = slotCount > 0 ? 100.0 / slotCount : 0.0;
+                foreach (var res in resolvedResources)
+                {
+                    var appts = GetAppointmentsForResource(res);
+                    var layout = TimelineAppointmentLayoutEngine.LayoutAppointments(appts, StartDate, EndDate, minWidth, snapToDays: true);
+                    resourceLayouts[res] = layout;
+                    var subLanes = layout.Any() ? layout.Max(a => a.SubLane) + 1 : 0;
+                    if (subLanes > maxSubLaneCount) maxSubLaneCount = subLanes;
+                }
+                var rowHeightEm = Math.Max(1, maxSubLaneCount) * 2.2 + 0.8;
+            }
+
+            <div class="rz-timeline-row" style="min-height: @(rowHeightEm.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))em;">
+                <div class="rz-timeline-horizontal-slots-container">
+                    @foreach (var res in resolvedResources)
+                    {
+                        var layout = resourceLayouts[res];
+                        <div class="rz-timeline-horizontal-resource-body-group">
+                            <!-- Background slots -->
+                            @foreach (var date in GetSlotDays())
+                            {
+                                var slotDate = date;
+                                <div @onclick=@(args => OnSlotClick(slotDate, res))
+                                     ondragover="event.preventDefault();"
+                                     @ondrop=@(args => OnTimelineDrop(slotDate, res))
+                                     @attributes=@SlotAttributes(slotDate, res)>
+                                </div>
+                            }
+                            <!-- Appointments -->
+                            @foreach (var app in layout)
+                            {
+                                <Appointment Data=@app.Appointment 
+                                             Left=@app.Left 
+                                             Width=@app.Width 
+                                             Top=@(app.SubLane * 2.2 + 0.4) 
+                                             Height="1.8" 
+                                             Click=@(a => OnAppointmentClick(a, res)) 
+                                             DragStart=@OnAppointmentDragStart />
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public DateTime StartDate { get; set; }
+
+    [Parameter]
+    public DateTime EndDate { get; set; }
+
+    [Parameter]
+    public string HeaderFormat { get; set; } = "ddd d/M";
+
+    [Parameter]
+    public IList<AppointmentData>? Appointments { get; set; }
+
+    [Parameter]
+    public IEnumerable? Resources { get; set; }
+
+    [Parameter]
+    public string? ResourceProperty { get; set; }
+
+    [Parameter]
+    public string? ResourceTextProperty { get; set; }
+
+    [Parameter]
+    public string? ResourceValueProperty { get; set; }
+
+    [Parameter]
+    public GroupOrientation GroupOrientation { get; set; } = GroupOrientation.Vertical;
+
+    [CascadingParameter]
+    public IScheduler? Scheduler { get; set; }
+
+    private List<TimelineResourceGroup> ResolvedResources => 
+        HasResources ? TimelineResourceManager.ResolveResourceGroups(Resources, ResourceTextProperty, ResourceValueProperty)
+                     : new List<TimelineResourceGroup> { new TimelineResourceGroup { Key = "default", Text = "Events", RawResource = new object() } };
+
+    private bool HasResources => Resources != null;
+
+    private IEnumerable<AppointmentData> GetAppointmentsForResource(TimelineResourceGroup resourceGroup)
+    {
+        if (Appointments == null) return Array.Empty<AppointmentData>();
+        if (!HasResources) return Appointments;
+        return Appointments.Where(a => TimelineResourceManager.AppBelongsToResource(a, ResourceProperty, resourceGroup.Key));
+    }
+
+    private List<DateTime> GetSlotDays()
+    {
+        var slotDays = new List<DateTime>();
+        for (var date = StartDate.Date; date < EndDate.Date; date = date.AddDays(1))
+        {
+            slotDays.Add(date);
+        }
+        return slotDays;
+    }
+
+    private IDictionary<string, object> SlotAttributes(DateTime date, TimelineResourceGroup resourceGroup)
+    {
+        var resourceVal = HasResources ? resourceGroup.Key : null;
+        var attributes = Scheduler?.GetSlotAttributes(date, date.AddDays(1), () => GetAppointmentsForSlot(date, resourceGroup)) ?? new Dictionary<string, object>();
+        attributes["class"] = ClassList.Create("rz-timeline-slot")
+            .Add(attributes)
+            .ToString();
+        return attributes;
+    }
+
+    private IEnumerable<AppointmentData> GetAppointmentsForSlot(DateTime start, TimelineResourceGroup resourceGroup)
+    {
+        var end = start.AddDays(1);
+        return GetAppointmentsForResource(resourceGroup).Where(a => Scheduler != null && Scheduler.IsAppointmentInRange(a, start, end));
+    }
+
+    private async Task OnSlotClick(DateTime date, TimelineResourceGroup resourceGroup)
+    {
+        if (Scheduler != null)
+        {
+            var targetResource = HasResources ? resourceGroup.Key : null;
+            await Scheduler.SelectSlot(date, date.AddDays(1), GetAppointmentsForSlot(date, resourceGroup), targetResource);
+        }
+    }
+
+    private async Task OnAppointmentClick(AppointmentData data, TimelineResourceGroup resourceGroup)
+    {
+        if (Scheduler != null)
+        {
+            var targetResource = HasResources ? resourceGroup.Key : null;
+            await Scheduler.SelectAppointment(data, targetResource);
+        }
+    }
+
+    private async Task OnTimelineDrop(DateTime slotDate, TimelineResourceGroup resourceGroup)
+    {
+        if (draggedAppointment != null)
+        {
+            TimeSpan timespan = slotDate - draggedAppointment.Start;
+            var targetResource = HasResources ? resourceGroup.Key : null;
+            await AppointmentMove.InvokeAsync(new SchedulerAppointmentMoveEventArgs
+            {
+                SlotDate = slotDate,
+                Appointment = draggedAppointment,
+                TimeSpan = timespan,
+                Resource = targetResource
+            });
+            draggedAppointment = null;
+        }
+        dragStarted = false;
+    }
+}
